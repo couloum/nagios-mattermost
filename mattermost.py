@@ -24,12 +24,13 @@ import argparse
 import json
 import urllib2
 
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 
 
 def parse():
     parser = argparse.ArgumentParser(description='Sends alerts to Mattermost')
     parser.add_argument('--url', help='Incoming Webhook URL', required=True)
+    parser.add_argument('-k', '--insecure', help='Do not check SSL certificate validity', action='store_true')
     parser.add_argument('--channel', help='Channel to notify')
     parser.add_argument('--username', help='Username to notify as',
                         default='Nagios')
@@ -93,17 +94,23 @@ def payload(args):
     if args.channel:
         payload["channel"] = args.channel
 
-    data = "payload=" + json.dumps(payload)
+    data = json.dumps(payload)
     return data
 
 
 def request(url, data):
-    req = urllib2.Request(url, data)
+    req = urllib2.Request(url, data, {'Content-Type': 'application/json'})
     response = urllib2.urlopen(req)
     return response.read()
 
 
 if __name__ == "__main__":
     args = parse()
+
+    # Ignore certificate check if --insecure argument is used
+    if args.insecure:
+        if (not os.environ.get('PYTHONHTTPSVERIFY', '') and getattr(ssl, '_create_unverified_context', None)):
+            ssl._create_default_https_context = ssl._create_unverified_context
+
     response = request(args.url, payload(args))
     print response
